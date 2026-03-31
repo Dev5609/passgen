@@ -30,22 +30,37 @@ export async function processImage(values: z.infer<typeof processImageSchema>) {
       throw new Error("AI background replacement failed.");
     }
 
-    // Step 2: Enhance quality
-    const enhancementResult = await aiEnhancedPhotoQuality({
-      photoDataUri: bgRemovalResult.processedPhotoDataUri,
-    });
-    
-    if (!enhancementResult.enhancedPhotoDataUri) {
-        throw new Error("AI photo enhancement failed.");
+    let finalImageUri = bgRemovalResult.processedPhotoDataUri;
+
+    // Step 2: Enhance quality (if key is available)
+    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+        try {
+            const enhancementResult = await aiEnhancedPhotoQuality({
+              photoDataUri: bgRemovalResult.processedPhotoDataUri,
+            });
+            
+            if (enhancementResult.enhancedPhotoDataUri) {
+                finalImageUri = enhancementResult.enhancedPhotoDataUri;
+            } else {
+               console.warn("AI photo enhancement finished but returned no image; using background-removed image.");
+            }
+        } catch (e) {
+            console.error("AI photo enhancement failed. Continuing with background-removed image.", e);
+        }
+    } else {
+        console.warn("GEMINI_API_KEY not found, skipping AI photo enhancement.");
     }
 
     return {
       success: true,
-      processedImageUri: enhancementResult.enhancedPhotoDataUri,
+      processedImageUri: finalImageUri,
     };
   } catch (error) {
     console.error("Image processing pipeline failed:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during image processing.";
+     if (error instanceof Error && (error.message.includes('API key') || error.message.includes('REMOVEBG_API_KEY'))) {
+        return { success: false, error: "The remove.bg API key is invalid or missing. Please check your .env file." };
+    }
     return { success: false, error: errorMessage };
   }
 }
@@ -65,6 +80,18 @@ export async function checkCompliance(values: z.infer<typeof complianceSchema>) 
     try {
         const { photoDataUri, country } = validatedValues.data;
         const standards = PASSPORT_STANDARDS[country as keyof typeof PASSPORT_STANDARDS];
+
+        if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+            console.warn("GEMINI_API_KEY not found, skipping AI compliance check.");
+            return {
+                success: true,
+                faceDetected: true,
+                complianceFeedback: ["AI compliance check skipped: API key missing. Please manually verify the photo against the guidelines."],
+                autoCropSuggestion: null,
+                eyeLineActualFromTopRatio: null,
+                headHeightActualRatio: null,
+            };
+        }
 
         const complianceResult = await aiGuidedPassportCompliance({
             photoDataUri,
