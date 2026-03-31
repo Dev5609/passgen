@@ -1,15 +1,14 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for AI-powered background removal and replacement with a plain white background.
+ * @fileOverview A flow for background removal using the remove.bg API.
  *
- * - aiBackgroundReplacement - A function that handles the AI background replacement process.
+ * - aiBackgroundReplacement - A function that handles the background replacement process.
  * - AiBackgroundReplacementInput - The input type for the aiBackgroundReplacement function.
  * - AiBackgroundReplacementOutput - The return type for the aiBackgroundReplacement function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
 
 const AiBackgroundReplacementInputSchema = z.object({
   photoDataUri: z
@@ -42,26 +41,47 @@ const aiBackgroundReplacementFlow = ai.defineFlow(
     outputSchema: AiBackgroundReplacementOutputSchema,
   },
   async (input) => {
-    const {media} = await ai.generate({
-      model: googleAI.model('gemini-2.5-flash-image'),
-      prompt: [
-        {media: {url: input.photoDataUri}},
-        {
-          text:
-            'Remove the background from this image and replace it with a plain white background. Ensure the edges are natural and the subject is clearly defined suitable for a passport photo.',
-        },
-      ],
-      config: {
-        responseModalities: ['IMAGE'],
-      },
-    });
-
-    if (!media || !media.url) {
-      throw new Error('Failed to get processed image from AI model.');
+    const apiKey = process.env.REMOVEBG_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        'REMOVEBG_API_KEY is not set in the environment variables.'
+      );
     }
 
+    const base64Data = input.photoDataUri.split(',')[1];
+
+    const formData = new FormData();
+    formData.append('image_file_b64', base64Data);
+    formData.append('bg_color', 'white');
+    formData.append('size', 'auto'); // To get the full resolution image
+
+    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': apiKey,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorBody = 'Could not read error body';
+      try {
+        errorBody = await response.text();
+      } catch (e) {
+        // ignore
+      }
+      throw new Error(
+        `Background removal API failed with status ${response.status}: ${errorBody}`
+      );
+    }
+
+    const imageBuffer = await response.arrayBuffer();
+    const mimeType = response.headers.get('content-type') || 'image/png';
+    const resultBase64 = Buffer.from(imageBuffer).toString('base64');
+    const processedPhotoDataUri = `data:${mimeType};base64,${resultBase64}`;
+
     return {
-      processedPhotoDataUri: media.url,
+      processedPhotoDataUri,
     };
   }
 );
