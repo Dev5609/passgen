@@ -73,19 +73,19 @@ export default function UploadStep() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center animate-in fade-in duration-500">
         <div className="text-center md:text-left">
-            <h1 className="font-headline text-4xl md:text-6xl font-bold tracking-tight text-foreground">
+            <h1 className="font-headline text-4xl md:text-6xl font-bold tracking-tight text-foreground" style={{ textShadow: '0 0 20px rgba(hsl(var(--primary)), 0.3)'}}>
               Create Perfect Passport Photos in Seconds
             </h1>
             <p className="mt-4 text-lg md:text-xl text-muted-foreground">
               Upload your photo and let our AI handle the background, enhancement, and compliance checks automatically.
             </p>
             <div className="mt-8">
-                <Button size="lg" onClick={() => document.querySelector<HTMLElement>('input[type="file"]')?.click()}>
+                <Button size="lg" className="btn-glow" onClick={() => document.querySelector<HTMLElement>('input[type="file"]')?.click()}>
                     Upload Your Photo <ArrowRight className="ml-2"/>
                 </Button>
             </div>
         </div>
-      <Card>
+      <Card className="card-glow bg-card/50 backdrop-blur-sm">
         <CardContent className="p-4">
           <div
             {...getRootProps()}
@@ -95,7 +95,7 @@ export default function UploadStep() {
           >
             <input {...getInputProps()} />
             <div className="text-center">
-                <UploadCloud className={`mx-auto h-12 w-12 ${error ? 'text-destructive' : 'text-muted-foreground'}`} />
+                <UploadCloud className={`mx-auto h-12 w-12 ${error ? 'text-destructive' : 'text-primary'}`} />
                 <p className="mt-4 font-semibold">
                   {isDragActive ? 'Drop the file here...' : 'Drag & drop a photo or click to select'}
                 </p>

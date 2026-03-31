@@ -26,13 +26,13 @@ export default function DownloadStep() {
   const zipFile = generatedFiles?.find(f => f.mimeType === 'application/zip');
 
   return (
-    <Card className="w-full animate-in fade-in duration-500">
+    <Card className="w-full animate-in fade-in duration-500 card-glow bg-card/50 backdrop-blur-sm">
       <CardHeader>
         <CardTitle className="font-headline text-3xl">Download Your Photos</CardTitle>
         <CardDescription>Your passport photos are ready. Download them in your preferred format.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="flex flex-col items-center justify-center rounded-lg border bg-card-foreground/5 p-4">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-primary/20 bg-card-foreground/5 p-4">
             <h3 className="mb-4 text-lg font-medium">Print Sheet Preview</h3>
             <div className="relative w-full overflow-hidden rounded-lg shadow-lg" style={{ aspectRatio: `${paperSize.width_mm}/${paperSize.height_mm}` }}>
               {finalImage ? (
@@ -44,7 +44,7 @@ export default function DownloadStep() {
                   className="bg-white"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-muted">
+                <div className="flex h-full w-full items-center justify-center bg-muted/50">
                     <p className="text-muted-foreground">No preview available.</p>
                 </div>
               )}
@@ -54,7 +54,7 @@ export default function DownloadStep() {
         <div className="flex flex-col justify-center space-y-4">
           <h3 className="text-center text-lg font-medium md:text-left">Your Download Options</h3>
           {pdfFile && (
-            <Button size="lg" onClick={() => downloadFile(pdfFile.url, pdfFile.fileName)}>
+            <Button size="lg" onClick={() => downloadFile(pdfFile.url, pdfFile.fileName)} className="btn-glow">
               <Download className="mr-2" />
               Download PDF Sheet
             </Button>

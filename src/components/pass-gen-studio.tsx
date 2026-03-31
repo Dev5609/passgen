@@ -42,7 +42,7 @@ export default function PassGenStudio() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-background/50 backdrop-blur-lg">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Logo />
           <div className="w-full max-w-md">

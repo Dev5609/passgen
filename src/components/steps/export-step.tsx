@@ -134,13 +134,13 @@ export default function ExportStep() {
   }
 
   return (
-    <Card className="w-full animate-in fade-in duration-500">
+    <Card className="w-full animate-in fade-in duration-500 card-glow bg-card/50 backdrop-blur-sm">
       <CardHeader>
         <CardTitle className="font-headline text-3xl">Configure Your Print Sheet</CardTitle>
         <CardDescription>Choose how you want to arrange and save your passport photos.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="flex items-center justify-center rounded-lg border bg-muted p-4">
+        <div className="flex items-center justify-center rounded-lg border border-primary/20 bg-muted/50 p-4">
           {croppedImage ? (
             <img src={croppedImage} alt="Cropped passport" className="max-h-[400px] rounded-md shadow-lg" />
           ) : (
@@ -172,12 +172,12 @@ export default function ExportStep() {
               </Select>
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
             <Label htmlFor="cutting-guides" className="text-base">Add Cutting Guides</Label>
             <Switch id="cutting-guides" checked={addCuttingGuides} onCheckedChange={setAddCuttingGuides} />
           </div>
           <div className="space-y-3 pt-4">
-             <Button size="lg" className="w-full" onClick={handleGenerateAll} disabled={isLoading}>
+             <Button size="lg" className="w-full btn-glow" onClick={handleGenerateAll} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2" />}
               Generate All Formats
             </Button>

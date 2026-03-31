@@ -103,7 +103,7 @@ export default function EditStep() {
   );
 
   return (
-    <Card className="w-full animate-in fade-in duration-500">
+    <Card className="w-full animate-in fade-in duration-500 card-glow bg-card/50 backdrop-blur-sm">
       <CardHeader>
         <CardTitle className="font-headline text-3xl">Adjust & Crop Your Photo</CardTitle>
         <CardDescription>Select your passport standard and fine-tune the crop. Our AI will guide you.</CardDescription>
@@ -130,7 +130,7 @@ export default function EditStep() {
                   />
                 )}
               </div>
-              <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted p-2">
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted/50 p-2">
                 <Button variant="ghost" size="icon" onClick={() => cropperRef.current?.cropper.zoom(0.1)}><ZoomIn/></Button>
                 <Button variant="ghost" size="icon" onClick={() => cropperRef.current?.cropper.zoom(-0.1)}><ZoomOut/></Button>
                 <Button variant="ghost" size="icon" onClick={() => cropperRef.current?.cropper.setDragMode('move')}><Move/></Button>
@@ -153,7 +153,7 @@ export default function EditStep() {
                 </Select>
               </div>
 
-              <div className="flex-1 space-y-2 rounded-lg border p-4">
+              <div className="flex-1 space-y-2 rounded-lg border bg-muted/50 p-4">
                 <div className="flex items-center justify-between">
                     <h3 className="font-semibold">AI Compliance Check</h3>
                     {isComplianceLoading && <Loader2 className="h-4 w-4 animate-spin"/>}
@@ -166,7 +166,7 @@ export default function EditStep() {
                 ) : (
                     <ul className="space-y-2 text-sm">
                     {complianceResult.complianceFeedback.map((msg, i) => (
-                        <li key={i} className={`flex items-start gap-2 ${msg.includes('meet') ? 'text-green-600' : 'text-amber-600'}`}>
+                        <li key={i} className={`flex items-start gap-2 ${msg.includes('meet') ? 'text-green-400' : 'text-amber-400'}`}>
                             {msg.includes('meet') ? <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" /> : <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />}
                             <span>{msg}</span>
                         </li>
@@ -174,7 +174,7 @@ export default function EditStep() {
                     </ul>
                 )}
               </div>
-              <Button size="lg" className="w-full" onClick={handleNext}>
+              <Button size="lg" className="w-full btn-glow" onClick={handleNext}>
                 Next Step <ArrowRight className="ml-2" />
               </Button>
             </div>
