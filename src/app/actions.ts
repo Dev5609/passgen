@@ -140,8 +140,8 @@ async function generatePdf(input: GenerationInput): Promise<string> {
     const photosPerRow = Math.floor(availableWidth / photoWidthPt);
     const photosPerCol = Math.floor(availableHeight / photoHeightPt);
 
-    const xSpacing = (availableWidth - photosPerRow * photoWidthPt) / (photosPerRow > 1 ? photosPerRow - 1 : 1);
-    const ySpacing = (availableHeight - photosPerCol * photoHeightPt) / (photosPerCol > 1 ? photosPerCol - 1 : 1);
+    const xSpacing = photosPerRow > 1 ? (availableWidth - photosPerRow * photoWidthPt) / (photosPerRow - 1) : 0;
+    const ySpacing = photosPerCol > 1 ? (availableHeight - photosPerCol * photoHeightPt) / (photosPerCol - 1) : 0;
 
     let copiesPlaced = 0;
     for (let row = 0; row < photosPerCol && copiesPlaced < copies; row++) {
