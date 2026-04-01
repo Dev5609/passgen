@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { PAPER_SIZES, COPY_OPTIONS } from "@/lib/constants";
+import { PAPER_SIZES } from "@/lib/constants";
 import { generateDownloadables } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 type Format = 'pdf' | 'png' | 'zip';
 
@@ -43,8 +44,7 @@ export default function ExportStep() {
         });
     
         if (result.success && result.file) {
-            const url = `data:${result.file.mimeType};base64,${result.file.data}`;
-            setGeneratedFiles(prev => [...(prev || []), { url, fileName: result.file.fileName, mimeType: result.file.mimeType }]);
+            setGeneratedFiles(prev => [...(prev || []), { url: `data:${result.file.mimeType};base64,${result.file.data}`, fileName: result.file.fileName, mimeType: result.file.mimeType }]);
         } else {
             toast({ variant: "destructive", title: "Generation Failed", description: result.error });
         }
@@ -67,7 +67,7 @@ export default function ExportStep() {
       const MM_TO_PX = 3.7795275591; // at 96 DPI
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx || !copies || parseInt(copies, 10) < 1) return;
 
       const paperWidthPx = paperDetails.width_mm * MM_TO_PX;
       const paperHeightPx = paperDetails.height_mm * MM_TO_PX;
@@ -104,7 +104,7 @@ export default function ExportStep() {
   };
 
   const handleGenerateAll = async () => {
-      if (!croppedImage || !standard) return;
+      if (!croppedImage || !standard || !copies || parseInt(copies, 10) < 1) return;
       setIsLoading(true);
       
       const paperDetails = PAPER_SIZES[paper];
@@ -150,15 +150,15 @@ export default function ExportStep() {
         <div className="flex flex-col space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="copies-select">Number of Copies</Label>
-              <Select value={copies} onValueChange={setCopies}>
-                <SelectTrigger id="copies-select" className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {COPY_OPTIONS.map(opt => <SelectItem key={opt} value={String(opt)}>{opt} Copies</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="copies-input">Number of Copies</Label>
+              <Input
+                id="copies-input"
+                type="number"
+                value={copies}
+                onChange={(e) => setCopies(e.target.value)}
+                min="1"
+                className="mt-2"
+              />
             </div>
             <div>
               <Label htmlFor="paper-select">Paper Size</Label>
@@ -177,7 +177,7 @@ export default function ExportStep() {
             <Switch id="cutting-guides" checked={addCuttingGuides} onCheckedChange={setAddCuttingGuides} />
           </div>
           <div className="space-y-3 pt-4">
-             <Button size="lg" className="w-full btn-glow" onClick={handleGenerateAll} disabled={isLoading}>
+             <Button size="lg" className="w-full btn-glow" onClick={handleGenerateAll} disabled={isLoading || !copies || parseInt(copies, 10) < 1}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2" />}
               Generate All Formats
             </Button>

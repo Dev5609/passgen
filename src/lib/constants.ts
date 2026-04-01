@@ -50,6 +50,4 @@ export const PAPER_SIZES = {
   letter: { name: 'Letter', width_mm: 215.9, height_mm: 279.4 },
 };
 
-export const COPY_OPTIONS = [4, 6, 8, 12];
-
 export type PaperSizeDetails = typeof PAPER_SIZES[keyof typeof PAPER_SIZES];
