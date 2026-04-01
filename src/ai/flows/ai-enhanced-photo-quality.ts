@@ -10,8 +10,8 @@
  * - AiEnhancedPhotoQualityOutput - The return type for the aiEnhancedPhotoQuality function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { defineFlow, generate } from 'genkit';
+import { z } from 'zod';
 
 const AiEnhancedPhotoQualityInputSchema = z.object({
   photoDataUri: z
@@ -31,37 +31,39 @@ const AiEnhancedPhotoQualityOutputSchema = z.object({
 });
 export type AiEnhancedPhotoQualityOutput = z.infer<typeof AiEnhancedPhotoQualityOutputSchema>;
 
-export async function aiEnhancedPhotoQuality(input: AiEnhancedPhotoQualityInput): Promise<AiEnhancedPhotoQualityOutput> {
-  return aiEnhancedPhotoQualityFlow(input);
-}
-
-const aiEnhancedPhotoQualityFlow = ai.defineFlow(
+const aiEnhancedPhotoQualityFlow = defineFlow(
   {
     name: 'aiEnhancedPhotoQualityFlow',
     inputSchema: AiEnhancedPhotoQualityInputSchema,
     outputSchema: AiEnhancedPhotoQualityOutputSchema,
   },
   async (input) => {
-    const {media} = await ai.generate({
-      model: 'openai/gpt-4o', // Using a multimodal model capable of image-to-image tasks
+    const response = await generate({
+      model: 'gpt-4o',
       prompt: [
+        {
+          text: "You are an expert image enhancement AI. Your task is to subtly enhance the provided passport-style photo, which already has a white background. Focus on increasing sharpness slightly, improving brightness and contrast, and gently denoise the image. Crucially, improve the clarity of the face while preserving natural skin tones and avoiding any over-processing. The final image must remain realistic and suitable for official document use.",
+        },
         {
           media: {
             url: input.photoDataUri,
           },
         },
-        {
-          text: "You are an expert image enhancement AI. Your task is to subtly enhance the provided passport-style photo, which already has a white background. Focus on increasing sharpness slightly, improving brightness and contrast, and gently denoise the image. Crucially, improve the clarity of the face while preserving natural skin tones and avoiding any over-processing. The final image must remain realistic and suitable for official document use.",
-        },
       ],
     });
 
-    if (!media) {
+    const media = response.media();
+    if (!media || media.length === 0) {
       throw new Error('AI model failed to generate an enhanced image.');
     }
 
     return {
-      enhancedPhotoDataUri: media.url,
+      enhancedPhotoDataUri: media[0].url,
     };
   }
 );
+
+
+export async function aiEnhancedPhotoQuality(input: AiEnhancedPhotoQualityInput): Promise<AiEnhancedPhotoQualityOutput> {
+  return await aiEnhancedPhotoQualityFlow.run(input);
+}

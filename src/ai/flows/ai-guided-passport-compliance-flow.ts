@@ -7,8 +7,8 @@
  * - AiGuidedPassportComplianceOutput - The return type for the aiGuidedPassportCompliance function.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { defineFlow, definePrompt } from 'genkit';
+import { z } from 'zod';
 
 // Input schema for the compliance check
 const AiGuidedPassportComplianceInputSchema = z.object({
@@ -41,18 +41,11 @@ const AiGuidedPassportComplianceOutputSchema = z.object({
 });
 export type AiGuidedPassportComplianceOutput = z.infer<typeof AiGuidedPassportComplianceOutputSchema>;
 
-// Wrapper function to call the Genkit flow
-export async function aiGuidedPassportCompliance(
-  input: AiGuidedPassportComplianceInput
-): Promise<AiGuidedPassportComplianceOutput> {
-  return aiGuidedPassportComplianceFlow(input);
-}
-
 // Define the Genkit prompt
-const aiGuidedPassportCompliancePrompt = ai.definePrompt({
+const aiGuidedPassportCompliancePrompt = definePrompt({
   name: 'aiGuidedPassportCompliancePrompt',
-  input: { schema: AiGuidedPassportComplianceInputSchema },
-  output: { schema: AiGuidedPassportComplianceOutputSchema },
+  inputSchema: AiGuidedPassportComplianceInputSchema,
+  outputSchema: AiGuidedPassportComplianceOutputSchema,
   prompt: `You are an expert in passport photo compliance. Your task is to analyze the provided photo and ensure it meets specific country standards for passport photos.
 You need to perform the following steps:
 1.  **Detect Facial Features**: Identify the bounding box of the face, the coordinates of the left eye, right eye, top of the head, and chin. These coordinates should be relative to the image dimensions (0.0 to 1.0). If no face is detected, set 'faceDetected' to false and return.
@@ -72,7 +65,7 @@ Photo: {{media url=photoDataUri}}
 });
 
 // Define the Genkit flow
-const aiGuidedPassportComplianceFlow = ai.defineFlow(
+const aiGuidedPassportComplianceFlow = defineFlow(
   {
     name: 'aiGuidedPassportComplianceFlow',
     inputSchema: AiGuidedPassportComplianceInputSchema,
@@ -80,16 +73,17 @@ const aiGuidedPassportComplianceFlow = ai.defineFlow(
   },
   async (input) => {
     try {
-      const { output } = await aiGuidedPassportCompliancePrompt(input, {
-        model: 'openai/gpt-4o', // Use the image-capable model for visual analysis
+      const response = await aiGuidedPassportCompliancePrompt.generate({
+        input: input,
+        model: 'gpt-4o', 
       });
+
+      const output = response.output();
 
       if (!output) {
         throw new Error('AI model did not return any structured output.');
       }
       
-      // The output from the prompt is already a structured object, no parsing needed.
-      // We can do a safe parse to be sure it matches the schema at runtime.
       const validation = AiGuidedPassportComplianceOutputSchema.safeParse(output);
 
       if (!validation.success) {
@@ -111,3 +105,11 @@ const aiGuidedPassportComplianceFlow = ai.defineFlow(
     }
   }
 );
+
+
+// Wrapper function to call the Genkit flow
+export async function aiGuidedPassportCompliance(
+  input: AiGuidedPassportComplianceInput
+): Promise<AiGuidedPassportComplianceOutput> {
+  return await aiGuidedPassportComplianceFlow.run(input);
+}
