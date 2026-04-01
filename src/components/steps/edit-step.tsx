@@ -29,19 +29,22 @@ export default function EditStep() {
   const handleImageProcessing = useCallback(async () => {
     if (!originalImage) return;
 
-    setLoadingState({ message: "Removing background..." });
-    const bgResult = await processImage({ photoDataUri: originalImage.dataUri });
+    setLoadingState({ message: "AI processing..." });
+    const result = await processImage({ photoDataUri: originalImage.dataUri });
     
-    if (bgResult.success && bgResult.processedImageUri) {
-      setLoadingState({ message: "Enhancing quality..." });
-      // The processImage action now handles both steps
-      setProcessedImgSrc(bgResult.processedImageUri);
-      setProcessedImage(bgResult.processedImageUri);
-      setLoadingState({ message: null });
+    if (result.success && result.processedImageUri) {
+      setProcessedImgSrc(result.processedImageUri);
+      setProcessedImage(result.processedImageUri);
+      if (result.processedImageUri !== originalImage.dataUri) {
+          toast({ title: "AI Processing Complete", description: "Your photo has been enhanced." });
+      }
     } else {
-      toast({ variant: "destructive", title: "Processing Failed", description: bgResult.error });
-      setLoadingState({ message: "Processing failed. Please try again." });
+      toast({ variant: "destructive", title: "AI Processing Failed", description: `${result.error} Proceeding with original image.` });
+      // Fallback to original image so user can still crop manually
+      setProcessedImgSrc(originalImage.dataUri);
+      setProcessedImage(originalImage.dataUri);
     }
+    setLoadingState({ message: null });
   }, [originalImage, setProcessedImage, toast]);
   
   const handleComplianceCheck = useCallback(async () => {

@@ -1,12 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { aiBackgroundReplacement } from "@/ai/flows/ai-background-replacement-flow";
 import { aiEnhancedPhotoQuality } from "@/ai/flows/ai-enhanced-photo-quality";
 import { aiGuidedPassportCompliance } from "@/ai/flows/ai-guided-passport-compliance-flow";
 import { PASSPORT_STANDARDS, PaperSizeDetails } from "@/lib/constants";
 import { PDFDocument, rgb, StandardFonts, PageSizes } from "pdf-lib";
 import JSZip from "jszip";
+import { removeBackground } from "@/lib/remove-bg";
 
 const MM_TO_PT = 2.83465;
 
@@ -17,39 +17,49 @@ const processImageSchema = z.object({
 export async function processImage(values: z.infer<typeof processImageSchema>) {
   const validatedValues = processImageSchema.safeParse(values);
   if (!validatedValues.success) {
-    throw new Error("Invalid input for image processing");
+    return { success: false, error: "Invalid input for image processing." };
   }
 
   const { photoDataUri } = validatedValues.data;
+  let currentImageUri = photoDataUri;
 
-  // If no Gemini key, we can't do any AI processing.
-  // We'll return the original image and the user can proceed with manual cropping.
-  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
-      console.warn("GEMINI_API_KEY not found, skipping all AI image processing.");
+  // If no keys are provided at all, just return the original image.
+  if (!process.env.REMOVE_BG_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+      console.warn("No API keys found for image processing. Returning original image.");
       return {
-        success: true,
-        processedImageUri: photoDataUri,
+          success: true,
+          processedImageUri: photoDataUri,
       };
   }
 
   try {
-    // Step 1: Remove background using Gemini
-    const bgRemovalResult = await aiBackgroundReplacement({ photoDataUri });
-
-    if (!bgRemovalResult.processedPhotoDataUri) {
-      throw new Error("AI background replacement failed.");
+    // Step 1: Remove background using remove.bg if configured
+    if (process.env.REMOVE_BG_API_KEY) {
+      console.log("Attempting background removal with remove.bg...");
+      currentImageUri = await removeBackground(currentImageUri);
+    } else {
+      console.warn("REMOVE_BG_API_KEY not found. Skipping background removal.");
     }
 
-    // Step 2: Enhance quality using Gemini
-    const enhancementResult = await aiEnhancedPhotoQuality({
-      photoDataUri: bgRemovalResult.processedPhotoDataUri,
-    });
-    
-    const finalImageUri = enhancementResult.enhancedPhotoDataUri || bgRemovalResult.processedPhotoDataUri;
+    // Step 2: Enhance quality using Gemini if configured
+    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+      try {
+        console.log("Attempting photo enhancement with Gemini...");
+        const enhancementResult = await aiEnhancedPhotoQuality({
+          photoDataUri: currentImageUri,
+        });
+        currentImageUri = enhancementResult.enhancedPhotoDataUri || currentImageUri;
+      } catch (enhancementError) {
+        console.error("Gemini photo enhancement failed:", enhancementError);
+        console.warn("Skipping photo enhancement due to an error, but proceeding with the image from the previous step.");
+      }
+    } else {
+      console.warn("GEMINI_API_KEY not found, skipping AI photo enhancement.");
+    }
 
     return {
       success: true,
-      processedImageUri: finalImageUri,
+      processedImageUri: currentImageUri,
     };
   } catch (error) {
     console.error("Image processing pipeline failed:", error);
