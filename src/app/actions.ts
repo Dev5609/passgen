@@ -20,36 +20,32 @@ export async function processImage(values: z.infer<typeof processImageSchema>) {
     throw new Error("Invalid input for image processing");
   }
 
+  const { photoDataUri } = validatedValues.data;
+
+  // If no Gemini key, we can't do any AI processing.
+  // We'll return the original image and the user can proceed with manual cropping.
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+      console.warn("GEMINI_API_KEY not found, skipping all AI image processing.");
+      return {
+        success: true,
+        processedImageUri: photoDataUri,
+      };
+  }
+
   try {
-    const { photoDataUri } = validatedValues.data;
-    
-    // Step 1: Remove background
+    // Step 1: Remove background using Gemini
     const bgRemovalResult = await aiBackgroundReplacement({ photoDataUri });
 
     if (!bgRemovalResult.processedPhotoDataUri) {
       throw new Error("AI background replacement failed.");
     }
 
-    let finalImageUri = bgRemovalResult.processedPhotoDataUri;
-
-    // Step 2: Enhance quality (if key is available)
-    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
-        try {
-            const enhancementResult = await aiEnhancedPhotoQuality({
-              photoDataUri: bgRemovalResult.processedPhotoDataUri,
-            });
-            
-            if (enhancementResult.enhancedPhotoDataUri) {
-                finalImageUri = enhancementResult.enhancedPhotoDataUri;
-            } else {
-               console.warn("AI photo enhancement finished but returned no image; using background-removed image.");
-            }
-        } catch (e) {
-            console.error("AI photo enhancement failed. Continuing with background-removed image.", e);
-        }
-    } else {
-        console.warn("GEMINI_API_KEY not found, skipping AI photo enhancement.");
-    }
+    // Step 2: Enhance quality using Gemini
+    const enhancementResult = await aiEnhancedPhotoQuality({
+      photoDataUri: bgRemovalResult.processedPhotoDataUri,
+    });
+    
+    const finalImageUri = enhancementResult.enhancedPhotoDataUri || bgRemovalResult.processedPhotoDataUri;
 
     return {
       success: true,
@@ -58,9 +54,6 @@ export async function processImage(values: z.infer<typeof processImageSchema>) {
   } catch (error) {
     console.error("Image processing pipeline failed:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during image processing.";
-     if (error instanceof Error && (error.message.includes('API key') || error.message.includes('REMOVEBG_API_KEY'))) {
-        return { success: false, error: "The remove.bg API key is invalid or missing. Please check your .env file." };
-    }
     return { success: false, error: errorMessage };
   }
 }

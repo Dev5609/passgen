@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A flow for background removal using the remove.bg API.
+ * @fileOverview A flow for background removal using AI.
  *
  * - aiBackgroundReplacement - A function that handles the background replacement process.
  * - AiBackgroundReplacementInput - The input type for the aiBackgroundReplacement function.
@@ -41,47 +41,33 @@ const aiBackgroundReplacementFlow = ai.defineFlow(
     outputSchema: AiBackgroundReplacementOutputSchema,
   },
   async (input) => {
-    const apiKey = process.env.REMOVEBG_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        'REMOVEBG_API_KEY is not set in the environment variables.'
-      );
+    if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not set. Cannot perform background replacement.");
     }
-
-    const base64Data = input.photoDataUri.split(',')[1];
-
-    const formData = new FormData();
-    formData.append('image_file_b64', base64Data);
-    formData.append('bg_color', 'white');
-    formData.append('size', 'auto'); // To get the full resolution image
-
-    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
-      headers: {
-        'X-Api-Key': apiKey,
+    
+    const {media} = await ai.generate({
+      model: 'googleai/gemini-2.5-flash-image',
+      prompt: [
+        {
+          media: {
+            url: input.photoDataUri,
+          },
+        },
+        {
+          text: 'You are an expert image editing AI. Your task is to accurately remove the background from the provided photo, leaving only the main subject. Replace the removed background with a plain, solid white background (#FFFFFF). The output image must be a photorealistic image of the subject on the white background and have the same dimensions as the input. Do not add any text or other elements to the image.',
+        },
+      ],
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
       },
-      body: formData,
     });
 
-    if (!response.ok) {
-      let errorBody = 'Could not read error body';
-      try {
-        errorBody = await response.text();
-      } catch (e) {
-        // ignore
-      }
-      throw new Error(
-        `Background removal API failed with status ${response.status}: ${errorBody}`
-      );
+    if (!media || !media.url) {
+      throw new Error('AI model failed to generate an image with a removed background.');
     }
 
-    const imageBuffer = await response.arrayBuffer();
-    const mimeType = response.headers.get('content-type') || 'image/png';
-    const resultBase64 = Buffer.from(imageBuffer).toString('base64');
-    const processedPhotoDataUri = `data:${mimeType};base64,${resultBase64}`;
-
     return {
-      processedPhotoDataUri,
+      processedPhotoDataUri: media.url,
     };
   }
 );

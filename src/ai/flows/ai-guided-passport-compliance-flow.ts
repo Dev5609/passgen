@@ -55,7 +55,7 @@ const aiGuidedPassportCompliancePrompt = ai.definePrompt({
   output: { schema: AiGuidedPassportComplianceOutputSchema },
   prompt: `You are an expert in passport photo compliance. Your task is to analyze the provided photo and ensure it meets specific country standards for passport photos.
 You need to perform the following steps:
-1.  **Detect Facial Features**: Identify the bounding box of the face, the coordinates of the left eye, right eye, top of the head, and chin. These coordinates should be relative to the image dimensions (0.0 to 1.0).
+1.  **Detect Facial Features**: Identify the bounding box of the face, the coordinates of the left eye, right eye, top of the head, and chin. These coordinates should be relative to the image dimensions (0.0 to 1.0). If no face is detected, set 'faceDetected' to false and return.
 2.  **Calculate Ratios**: Using the detected features, calculate the following:
     *   Actual eye line position as a ratio from the top of the photo (0.0 to 1.0).
     *   Actual head height (from top of head to chin) as a ratio of the total photo height (0.0 to 1.0).
@@ -66,9 +66,6 @@ You need to perform the following steps:
     *   If a targetAspectRatio is provided (e.g., "1:1" or "7:9"), consider it for crop suggestions.
 4.  **Generate Feedback**: Provide clear feedback on whether the photo is compliant or not. List any specific issues found (e.g., "Head is too small", "Eye line is too high"). If compliant, state "Photo meets compliance standards."
 5.  **Suggest Auto-Crop**: If a face is detected, suggest an optimal crop box that centers the face and attempts to meet the eye line and head height requirements. The crop box coordinates (xRatio, yRatio, widthRatio, heightRatio) must be ratios relative to the original image dimensions (0.0 to 1.0). The suggested crop should maintain an aspect ratio as close as possible to the targetAspectRatio (if provided) or a common passport photo aspect ratio (e.g., 7:9 or 1:1) while prioritizing correct head height and eye line placement. The center of the eyes should ideally be at the 'eyeLineFromTopRatio' within the cropped image.
-
-Your response MUST be a JSON object conforming to the following structure:
-{{jsonSchema AiGuidedPassportComplianceOutputSchema}}
 
 Photo: {{media url=photoDataUri}}
 `,
@@ -85,37 +82,22 @@ const aiGuidedPassportComplianceFlow = ai.defineFlow(
     try {
       const { output } = await aiGuidedPassportCompliancePrompt(input, {
         model: 'googleai/gemini-2.5-flash-image', // Use the image-capable model for visual analysis
-        // Additional safety settings can be added here if needed
       });
 
       if (!output) {
-        throw new Error('AI model did not return any output.');
+        throw new Error('AI model did not return any structured output.');
+      }
+      
+      // The output from the prompt is already a structured object, no parsing needed.
+      // We can do a safe parse to be sure it matches the schema at runtime.
+      const validation = AiGuidedPassportComplianceOutputSchema.safeParse(output);
+
+      if (!validation.success) {
+          console.error('AI model output did not match the expected schema:', validation.error);
+          throw new Error('AI model output structure is invalid.');
       }
 
-      // The prompt explicitly asks for JSON output, so parse it.
-      const parsedOutput: AiGuidedPassportComplianceOutput = JSON.parse(output);
-
-      // A basic runtime check of the parsed output against the schema structure.
-      // More robust validation might use Zod's .parse() or .safeParse() if strict validation is critical.
-      const isValidOutput = (
-        typeof parsedOutput.faceDetected === 'boolean' &&
-        Array.isArray(parsedOutput.complianceFeedback) &&
-        (parsedOutput.autoCropSuggestion === null || (
-          typeof parsedOutput.autoCropSuggestion.xRatio === 'number' &&
-          typeof parsedOutput.autoCropSuggestion.yRatio === 'number' &&
-          typeof parsedOutput.autoCropSuggestion.widthRatio === 'number' &&
-          typeof parsedOutput.autoCropSuggestion.heightRatio === 'number'
-        )) &&
-        (parsedOutput.eyeLineActualFromTopRatio === null || typeof parsedOutput.eyeLineActualFromTopRatio === 'number') &&
-        (parsedOutput.headHeightActualRatio === null || typeof parsedOutput.headHeightActualRatio === 'number')
-      );
-
-      if (!isValidOutput) {
-        console.error('AI model output did not fully match the expected schema:', parsedOutput);
-        throw new Error('AI model output structure is invalid or incomplete.');
-      }
-
-      return parsedOutput;
+      return validation.data;
     } catch (error: any) {
       console.error('Error in aiGuidedPassportComplianceFlow:', error);
       // Return a structured error output for better client-side handling
