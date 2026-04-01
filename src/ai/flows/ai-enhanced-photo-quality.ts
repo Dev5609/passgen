@@ -43,7 +43,7 @@ const aiEnhancedPhotoQualityFlow = ai.defineFlow(
   },
   async (input) => {
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.5-flash-image', // Using a multimodal model capable of image-to-image tasks
+      model: 'openai/gpt-4o', // Using a multimodal model capable of image-to-image tasks
       prompt: [
         {
           media: {
@@ -54,9 +54,6 @@ const aiEnhancedPhotoQualityFlow = ai.defineFlow(
           text: "You are an expert image enhancement AI. Your task is to subtly enhance the provided passport-style photo, which already has a white background. Focus on increasing sharpness slightly, improving brightness and contrast, and gently denoise the image. Crucially, improve the clarity of the face while preserving natural skin tones and avoiding any over-processing. The final image must remain realistic and suitable for official document use.",
         },
       ],
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'], // Required for multimodal models generating images
-      },
     });
 
     if (!media) {

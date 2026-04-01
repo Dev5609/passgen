@@ -81,7 +81,7 @@ const aiGuidedPassportComplianceFlow = ai.defineFlow(
   async (input) => {
     try {
       const { output } = await aiGuidedPassportCompliancePrompt(input, {
-        model: 'googleai/gemini-2.5-flash-image', // Use the image-capable model for visual analysis
+        model: 'openai/gpt-4o', // Use the image-capable model for visual analysis
       });
 
       if (!output) {

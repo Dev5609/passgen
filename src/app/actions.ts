@@ -24,7 +24,7 @@ export async function processImage(values: z.infer<typeof processImageSchema>) {
   let currentImageUri = photoDataUri;
 
   // If no keys are provided at all, just return the original image.
-  if (!process.env.REMOVE_BG_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+  if (!process.env.REMOVE_BG_API_KEY && !process.env.OPENAI_API_KEY) {
       console.warn("No API keys found for image processing. Returning original image.");
       return {
           success: true,
@@ -41,20 +41,20 @@ export async function processImage(values: z.infer<typeof processImageSchema>) {
       console.warn("REMOVE_BG_API_KEY not found. Skipping background removal.");
     }
 
-    // Step 2: Enhance quality using Gemini if configured
-    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+    // Step 2: Enhance quality using OpenAI if configured
+    if (process.env.OPENAI_API_KEY) {
       try {
-        console.log("Attempting photo enhancement with Gemini...");
+        console.log("Attempting photo enhancement with OpenAI...");
         const enhancementResult = await aiEnhancedPhotoQuality({
           photoDataUri: currentImageUri,
         });
         currentImageUri = enhancementResult.enhancedPhotoDataUri || currentImageUri;
       } catch (enhancementError) {
-        console.error("Gemini photo enhancement failed:", enhancementError);
+        console.error("OpenAI photo enhancement failed:", enhancementError);
         console.warn("Skipping photo enhancement due to an error, but proceeding with the image from the previous step.");
       }
     } else {
-      console.warn("GEMINI_API_KEY not found, skipping AI photo enhancement.");
+      console.warn("OPENAI_API_KEY not found, skipping AI photo enhancement.");
     }
 
     return {
@@ -84,8 +84,8 @@ export async function checkCompliance(values: z.infer<typeof complianceSchema>) 
         const { photoDataUri, country } = validatedValues.data;
         const standards = PASSPORT_STANDARDS[country as keyof typeof PASSPORT_STANDARDS];
 
-        if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
-            console.warn("GEMINI_API_KEY not found, skipping AI compliance check.");
+        if (!process.env.OPENAI_API_KEY) {
+            console.warn("OPENAI_API_KEY not found, skipping AI compliance check.");
             return {
                 success: true,
                 faceDetected: true,
