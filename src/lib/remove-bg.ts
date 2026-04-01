@@ -8,8 +8,11 @@ export async function removeBackground(photoDataUri: string): Promise<string> {
 
   const imageBlob = await (await fetch(photoDataUri)).blob();
   
+  const fileExtension = imageBlob.type.split('/')[1] || 'png';
+  const fileName = `photo.${fileExtension}`;
+
   const formData = new FormData();
-  formData.append('image_file', imageBlob, 'photo.jpg');
+  formData.append('image_file', imageBlob, fileName);
   formData.append('size', 'auto');
   formData.append('bg_color', 'white');
 

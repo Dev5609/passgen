@@ -5,7 +5,7 @@ import { useDropzone, FileRejection } from 'react-dropzone';
 import { AppContext, AppStep } from '@/context/app-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UploadCloud, FileWarning, ArrowRight, Camera, VideoOff } from 'lucide-react';
+import { UploadCloud, FileWarning, Camera, VideoOff, SwitchCamera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -22,6 +22,8 @@ export default function UploadStep() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[], fileRejections: FileRejection[]) => {
     setError(null);
@@ -84,11 +86,20 @@ export default function UploadStep() {
     }
   }, [stream]);
 
-  const startCamera = async () => {
-    if (stream || hasCameraPermission === false) return;
+  const startCamera = async (mode: 'user' | 'environment') => {
+    if (hasCameraPermission === false) {
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description: 'Please enable camera permissions in your browser settings to use this app.',
+      });
+      return;
+    }
     
+    stopStream();
+
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
       setStream(newStream);
       setHasCameraPermission(true);
       setIsCameraActive(true);
@@ -97,19 +108,27 @@ export default function UploadStep() {
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
+      if ((error as Error).name === 'NotAllowedError') {
+          setHasCameraPermission(false);
+      }
       setIsCameraActive(false);
       toast({
         variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings to use this app.',
+        title: 'Camera Access Error',
+        description: 'Could not access the selected camera. It might be in use or not available.',
       });
     }
   };
 
+  const toggleCamera = () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    startCamera(newMode);
+  };
+
   const handleTabChange = (value: string) => {
     if (value === 'camera') {
-      startCamera();
+      startCamera(facingMode);
     } else {
       stopStream();
       setIsCameraActive(false);
@@ -124,12 +143,12 @@ export default function UploadStep() {
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
       context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-      const dataUri = canvas.toDataURL('image/png');
+      const dataUri = canvas.toDataURL('image/jpeg', 0.9);
 
       fetch(dataUri)
         .then(res => res.blob())
         .then(blob => {
-          const file = new File([blob], "capture.png", { type: "image/png" });
+          const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
           setOriginalImage({
             file,
             dataUri,
@@ -142,6 +161,21 @@ export default function UploadStep() {
   };
   
   useEffect(() => {
+    const checkForMultipleCameras = async () => {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoInputs = devices.filter(d => d.kind === 'videoinput');
+                if (videoInputs.length > 1) {
+                    setHasMultipleCameras(true);
+                }
+            } catch (err) {
+                console.error("Error checking for multiple cameras:", err);
+            }
+        }
+    };
+    checkForMultipleCameras();
+
     return () => {
       stopStream();
     };
@@ -196,6 +230,17 @@ export default function UploadStep() {
                         <VideoOff className="h-12 w-12" />
                         <p className="mt-2">Camera is off</p>
                       </div>
+                    )}
+                    {isCameraActive && hasMultipleCameras && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-2 right-2 z-10 rounded-full bg-black/30 text-white hover:bg-black/50 hover:text-white"
+                        onClick={toggleCamera}
+                        aria-label="Switch camera"
+                      >
+                        <SwitchCamera />
+                      </Button>
                     )}
                   </div>
                   
