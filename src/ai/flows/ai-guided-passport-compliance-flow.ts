@@ -6,9 +6,9 @@
  * - AiGuidedPassportComplianceInput - The input type for the aiGuidedPassportCompliance function.
  * - AiGuidedPassportComplianceOutput - The return type for the aiGuidedPassportCompliance function.
  */
-
-import { defineFlow, definePrompt } from 'genkit';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import OpenAI from 'openai';
 
 // Input schema for the compliance check
 const AiGuidedPassportComplianceInputSchema = z.object({
@@ -41,31 +41,8 @@ const AiGuidedPassportComplianceOutputSchema = z.object({
 });
 export type AiGuidedPassportComplianceOutput = z.infer<typeof AiGuidedPassportComplianceOutputSchema>;
 
-// Define the Genkit prompt
-const aiGuidedPassportCompliancePrompt = definePrompt({
-  name: 'aiGuidedPassportCompliancePrompt',
-  inputSchema: AiGuidedPassportComplianceInputSchema,
-  outputSchema: AiGuidedPassportComplianceOutputSchema,
-  prompt: `You are an expert in passport photo compliance. Your task is to analyze the provided photo and ensure it meets specific country standards for passport photos.
-You need to perform the following steps:
-1.  **Detect Facial Features**: Identify the bounding box of the face, the coordinates of the left eye, right eye, top of the head, and chin. These coordinates should be relative to the image dimensions (0.0 to 1.0). If no face is detected, set 'faceDetected' to false and return.
-2.  **Calculate Ratios**: Using the detected features, calculate the following:
-    *   Actual eye line position as a ratio from the top of the photo (0.0 to 1.0).
-    *   Actual head height (from top of head to chin) as a ratio of the total photo height (0.0 to 1.0).
-3.  **Compare with Standards**: Compare the calculated actual ratios against the provided 'countryStandards'.
-    *   Expected minimum head height ratio: {{{countryStandards.minHeadHeightRatio}}}
-    *   Expected maximum head height ratio: {{{countryStandards.maxHeadHeightRatio}}}
-    *   Expected eye line from top ratio: {{{countryStandards.eyeLineFromTopRatio}}}
-    *   If a targetAspectRatio is provided (e.g., "1:1" or "7:9"), consider it for crop suggestions.
-4.  **Generate Feedback**: Provide clear feedback on whether the photo is compliant or not. List any specific issues found (e.g., "Head is too small", "Eye line is too high"). If compliant, state "Photo meets compliance standards."
-5.  **Suggest Auto-Crop**: If a face is detected, suggest an optimal crop box that centers the face and attempts to meet the eye line and head height requirements. The crop box coordinates (xRatio, yRatio, widthRatio, heightRatio) must be ratios relative to the original image dimensions (0.0 to 1.0). The suggested crop should maintain an aspect ratio as close as possible to the targetAspectRatio (if provided) or a common passport photo aspect ratio (e.g., 7:9 or 1:1) while prioritizing correct head height and eye line placement. The center of the eyes should ideally be at the 'eyeLineFromTopRatio' within the cropped image.
-
-Photo: {{media url=photoDataUri}}
-`,
-});
-
 // Define the Genkit flow
-const aiGuidedPassportComplianceFlow = defineFlow(
+const aiGuidedPassportComplianceFlow = ai.defineFlow(
   {
     name: 'aiGuidedPassportComplianceFlow',
     inputSchema: AiGuidedPassportComplianceInputSchema,
@@ -73,13 +50,45 @@ const aiGuidedPassportComplianceFlow = defineFlow(
   },
   async (input) => {
     try {
-      const response = await aiGuidedPassportCompliancePrompt.generate({
-        input: input,
-        model: 'gpt-4o', 
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const systemPrompt = `You are an expert in passport photo compliance. Your task is to analyze the provided photo and ensure it meets specific country standards for passport photos.
+You need to perform the following steps:
+1.  **Detect Facial Features**: Identify the bounding box of the face, the coordinates of the left eye, right eye, top of the head, and chin. These coordinates should be relative to the image dimensions (0.0 to 1.0). If no face is detected, set 'faceDetected' to false and return.
+2.  **Calculate Ratios**: Using the detected features, calculate the following:
+    *   Actual eye line position as a ratio from the top of the photo (0.0 to 1.0).
+    *   Actual head height (from top of head to chin) as a ratio of the total photo height (0.0 to 1.0).
+3.  **Compare with Standards**: Compare the calculated actual ratios against the provided 'countryStandards'.
+    *   Expected minimum head height ratio: ${input.countryStandards.minHeadHeightRatio}
+    *   Expected maximum head height ratio: ${input.countryStandards.maxHeadHeightRatio}
+    *   Expected eye line from top ratio: ${input.countryStandards.eyeLineFromTopRatio}
+    *   If a targetAspectRatio is provided (e.g., "${input.countryStandards.targetAspectRatio || '1:1'}"), consider it for crop suggestions.
+4.  **Generate Feedback**: Provide clear feedback on whether the photo is compliant or not. List any specific issues found (e.g., "Head is too small", "Eye line is too high"). If compliant, state "Photo meets compliance standards."
+5.  **Suggest Auto-Crop**: If a face is detected, suggest an optimal crop box that centers the face and attempts to meet the eye line and head height requirements. The crop box coordinates (xRatio, yRatio, widthRatio, heightRatio) must be ratios relative to the original image dimensions (0.0 to 1.0). The suggested crop should maintain an aspect ratio as close as possible to the targetAspectRatio (if provided) or a common passport photo aspect ratio (e.g., 7:9 or 1:1) while prioritizing correct head height and eye line placement. The center of the eyes should ideally be at the 'eyeLineFromTopRatio' within the cropped image.
+
+You must respond in a valid JSON object that conforms to this Zod schema: ${JSON.stringify(AiGuidedPassportComplianceOutputSchema.shape)}.
+`;
+
+      const response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          response_format: { type: "json_object" },
+          messages: [
+              { role: "system", content: systemPrompt },
+              {
+                  role: "user",
+                  content: [
+                      {
+                          type: "image_url",
+                          image_url: {
+                              url: input.photoDataUri,
+                          }
+                      }
+                  ]
+              }
+          ]
       });
 
-      const output = response.output();
-
+      const output = JSON.parse(response.choices[0].message.content || '{}');
+      
       if (!output) {
         throw new Error('AI model did not return any structured output.');
       }
@@ -111,5 +120,5 @@ const aiGuidedPassportComplianceFlow = defineFlow(
 export async function aiGuidedPassportCompliance(
   input: AiGuidedPassportComplianceInput
 ): Promise<AiGuidedPassportComplianceOutput> {
-  return await aiGuidedPassportComplianceFlow.run(input);
+  return await aiGuidedPassportComplianceFlow(input);
 }

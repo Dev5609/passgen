@@ -1,10 +1,7 @@
-import { configureGenkit } from 'genkit';
-import { openAI } from 'genkitx-openai';
+import { genkit } from 'genkit';
 
-configureGenkit({
-  plugins: [
-      openAI({apiKey: process.env.OPENAI_API_KEY})
-  ],
+export const ai = genkit({
+  plugins: [],
   logLevel: 'debug',
   enableTracingAndMetrics: true,
 });
